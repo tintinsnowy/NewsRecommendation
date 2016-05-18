@@ -1,4 +1,3 @@
-
 import org.apache.log4j.{Level, Logger}
 
 import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
@@ -8,7 +7,6 @@ import org.apache.spark.rdd._
 import org.apache.spark.{SparkContext, SparkConf}
 
 import org.apache.spark.SparkContext._
-
 
 import scala.io.Source
 /*    the list of table
@@ -24,21 +22,11 @@ import scala.io.Source
 
  https://wizardforcel.gitbooks.io/w3school-scala/content/17.html
 http://snglw.blog.51cto.com/5832405/1662153
+http://colobu.com/2015/11/30/movie-recommendation-for-douban-users-by-spark-mllib/
+http://www.infoq.com/cn/articles/recommendation-algorithm-overview-part02
+http://colobu.com/2015/11/30/movie-recommendation-for-douban-users-by-spark-mllib/
+
 */
-
-
-import org.apache.log4j.{Level, Logger}
-
-import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
-
-import org.apache.spark.rdd._
-
-import org.apache.spark.{SparkContext, SparkConf}
-
-import org.apache.spark.SparkContext._
-
-
-import scala.io.Source
 
 
 object ModuleBased {
@@ -55,51 +43,59 @@ object ModuleBased {
 
     //设置运行环境
 
-    val sparkConf = new SparkConf().setAppName("ModuleBased").setMaster("local[5]")
+    val sparkConf = new SparkConf()//.setAppName("ModuleBased").setMaster("local[5]")
 
     val sc = new SparkContext(sparkConf)
 
 
     //装载用户评分，该评分由评分器生成(即生成文件personalRatings.txt)
 
-    val myRatings = loadRatings(args(1))
+    // val myRatings = loadRatings(args(1))
 
-    val myRatingsRDD = sc.parallelize(myRatings, 1)
+    // val myRatingsRDD = sc.parallelize(myRatings, 1)
 
 
     //样本数据目录
 
-    val movielensHomeDir = args(0)
+    val eventHomeDir = "/home/sherry/web-data" //args(0)
 
 
     //装载样本评分数据，其中最后一列Timestamp取除10的余数作为key，Rating为值，即(Int，Rating)
 
-    val ratings = sc.textFile(movielensHomeDir + "/ratings.dat").map {
-
+    val ratings = sc.textFile(eventHomeDir + "/train.csv").map {
       line =>
+        val fields = line.split(",")
 
-        val fields = line.split("::")
-
-        // format: (timestamp % 10, Rating(userId, movieId, rating))
-
-        (fields(3).toLong % 10, Rating(fields(0).toInt, fields(1).toInt, fields(2).toDouble))
-
+        // former format: (timestamp % 10, Rating(userId, movieId, rating))
+        // now format: user, event, rating
+        var grade = 0.0;
+        val eventR = (fields(2).toInt, fields(4).toInt, fields(5).toInt)
+        eventR match{
+          case (1,1,0) => grade = 5.0
+          case (0,1,0) => grade = 4.0
+          case (1,0,0) => grade = 3.0
+          case (0,0,0) => grade = 2.0
+          case (1,0,1) => grade = 1.0
+          case (0,0,1) => grade = 0.0
+        }
+        Rating(fields(0).toInt, fields(1).toInt, grade)
     }
+    
 
 
     //装载电影目录对照表(电影ID->电影标题)
 
-    val movies = sc.textFile(movielensHomeDir + "/movies.dat").map {
+    // val movies = sc.textFile(eventHomeDir + "/movies.dat").map {
 
-      line =>
+    //   line =>
 
-        val fields = line.split("::")
+    //     val fields = line.split("::")
 
-        // format: (movieId, movieName)
+    //     // format: (movieId, movieName)
 
-        (fields(0).toInt, fields(1))
+    //     (fields(0).toInt, fields(1))
 
-    }.collect().toMap
+    // }.collect().toMap
 
     
 
@@ -107,7 +103,7 @@ object ModuleBased {
 
     val numRatings = ratings.count()
 
-    val numUsers = ratings.map(_._2.user).distinct().count()
+    val numUsers = ratings.map(_._2).distinct().count()
 
     val numMovies = ratings.map(_._2.product).distinct().count()
 
@@ -125,7 +121,6 @@ object ModuleBased {
     val validation = ratings.filter(x => x._1 >= 6 && x._1 < 8).values.repartition(numPartitions).persist()
 
     val test = ratings.filter(x => x._1 >= 8).values.persist()
-
 
     val numTraining = training.count()
 
