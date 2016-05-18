@@ -78,7 +78,12 @@ object ModuleBased {
           case (1,0,1) => grade = 1.0
           case (0,0,1) => grade = 0.0
         }
-        Rating(fields(0).toInt, fields(1).toInt, grade)
+        var userId = fields(0).toLong
+        var eventId = fields(1).toLong
+        if( userId > 2147483646) userId = userId %2147483646
+        if( eventId > 2147483646) eventId = eventId %2147483646
+  
+        Rating(userId.toInt, eventId.toInt, grade)
     }
     
 
@@ -103,11 +108,11 @@ object ModuleBased {
 
     val numRatings = ratings.count()
 
-    val numUsers = ratings.map(_._2).distinct().count()
+    val numUsers = ratings.map(_.user).distinct().count()
 
-    val numMovies = ratings.map(_._2.product).distinct().count()
+    val numEvents = ratings.map(_.product).distinct().count()
 
-    println("Got " + numRatings + " ratings from " + numUsers + " users " + numMovies + " movies")
+    println("Got " + numRatings + " ratings from " + numUsers + " users " + numMovies + " Events")
 
 
     //将样本评分表以key值切分成3个部分，分别用于训练 (60%，并加入用户评分), 校验 (20%), and 测试 (20%)
@@ -116,11 +121,17 @@ object ModuleBased {
 
     val numPartitions = 4
 
-    val training = ratings.filter(x => x._1 < 6).values.union(myRatingsRDD).repartition(numPartitions).persist()
+    // val training = ratings.filter(x => x._1 < 6).values.repartition(numPartitions).persist()
 
-    val validation = ratings.filter(x => x._1 >= 6 && x._1 < 8).values.repartition(numPartitions).persist()
+    // val validation = ratings.filter(x => x._1 >= 6 && x._1 < 8).values.repartition(numPartitions).persist()
 
-    val test = ratings.filter(x => x._1 >= 8).values.persist()
+    // val test = ratings.filter(x => x._1 >= 8).values.persist()
+    val training = sc.parallelize(ratings.collect.dropRight((numRatings*0.4).toInt)) 
+    
+    val validation = sc.parallelize(ratings.collect.drop((numRatings*0.6)
+                .toInt).dropRight((numRatings*0.2).toInt))
+    
+    val test = sc.parallelize(ratings.collect.drop((numRatings*0.8).toInt))
 
     val numTraining = training.count()
 
@@ -150,7 +161,6 @@ object ModuleBased {
 
     var bestNumIter = -1
 
-
     for (rank <- ranks; lambda <- lambdas; numIter <- numIters) {
 
       val model = ALS.train(training, rank, numIter, lambda)
@@ -160,7 +170,6 @@ object ModuleBased {
       println("RMSE(validation) = " + validationRmse + " for the model trained with rank = "
 
         + rank + ",lambda = " + lambda + ",and numIter = " + numIter + ".")
-
 
       if (validationRmse < bestValidationRmse) {
 
@@ -173,7 +182,6 @@ object ModuleBased {
         bestLambda = lambda
 
         bestNumIter = numIter
-
       }
 
     }
@@ -183,8 +191,11 @@ object ModuleBased {
 
     val testRmse = computeRmse(bestModel.get, test, numTest)
 
+    val predictions:RDD[Rating]= bestModel.get.predict(test.map(x => (x.user,x.product)))
+    val predictionsAndRatings = predictions.map{ x =>((x.user,x.product),x.rating)}
+                              .join(test.map(x => ((x.user,x.product),x.rating))).values
+    
     println("The best model was trained with rank = " + bestRank + " and lambda = " + bestLambda
-
       + ", and numIter = " + bestNumIter + ", and its RMSE on the test set is " + testRmse + ".")
 
 
@@ -236,16 +247,13 @@ object ModuleBased {
 
   /** 校验集预测数据和实际数据之间的均方根误差 **/
 
-  def computeRmse(model:MatrixFactorizationModel,data:RDD[Rating],n:Long):Double = {
+  def computeRmse(model: MatrixFactorizationModel,data:RDD[Rating],n:Long):Double = {
 
+    val predictions:RDD[Rating] = model.predict(data.map(x => (x.user,x.product)))
 
-    val predictions:RDD[Rating] = model.predict((data.map(x => (x.user,x.product))))
+    val predictionsAndRatings = predictions.map{ x =>((x.user,x.product),x.rating)}.join(data.map(x => ((x.user,x.product),x.rating))).values
 
-    val predictionsAndRatings = predictions.map{ x =>((x.user,x.product),x.rating)}
-
-                          .join(data.map(x => ((x.user,x.product),x.rating))).values
-
-    math.sqrt(predictionsAndRatings.map( x => (x._1 - x._2) * (x._1 - x._2)).reduce(_+_)/n)
+      return math.sqrt(predictionsAndRatings.map( x => (x._1 - x._2) * (x._1 - x._2)).reduce(_+_)/n)
 
   }//end of the compute function 
 
@@ -253,11 +261,11 @@ object ModuleBased {
   /** 装载用户评分文件 personalRatings.txt **/
 
   def loadRatings(path:String):Seq[Rating] = {
-
+    
     val lines = Source.fromFile(path).getLines()
-
+    
     val ratings = lines.map{
-
+    
       line =>
 
         val fields = line.split("::")
