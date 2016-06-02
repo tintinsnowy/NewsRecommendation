@@ -30,7 +30,6 @@ object MovieLensALS {
 
     val sc = new SparkContext(sparkConf)
 
-
     //装载用户评分，该评分由评分器生成(即生成文件personalRatings.txt)
 
     val myRatings = loadRatings(args(1))
@@ -43,22 +42,21 @@ object MovieLensALS {
     val movielensHomeDir = args(0)
 
 
-    //装载样本评分数据，其中最后一列Timestamp取除10的余数作为key，Rating为值，即(Int，Rating)
+    //装载样本评分数据，其中最后一列Timestamp取除10的余数作为key，Rating为值，�?(Int，Rating)
 
-    val ratings = sc.textFile(movielensHomeDir + "/ratings.dat").map {
+    val ratings = sc.textFile("/home/sherry/web-data/ratings.dat").map {
 
       line =>
 
         val fields = line.split("::")
 
         // format: (timestamp % 10, Rating(userId, movieId, rating))
-
-        (fields(3).toLong % 10, Rating(fields(0).toInt, fields(1).toInt, fields(2).toDouble))
+      Rating(fields(0).toInt, fields(1).toInt, fields(2).toDouble)
 
     }
 
 
-    //装载电影目录对照表(电影ID->电影标题)
+    //装载电影目录对照�?(电影ID->电影标题)
 
     val movies = sc.textFile(movielensHomeDir + "/movies.dat").map {
 
@@ -87,7 +85,7 @@ object MovieLensALS {
 
     //将样本评分表以key值切分成3个部分，分别用于训练 (60%，并加入用户评分), 校验 (20%), and 测试 (20%)
 
-    //该数据在计算过程中要多次应用到，所以cache到内存
+    //该数据在计算过程中要多次应用到，所以cache到内�?
 
     val numPartitions = 4
 
@@ -97,7 +95,6 @@ object MovieLensALS {
 
     val test = ratings.filter(x => x._1 >= 8).values.persist()
 
-
     val numTraining = training.count()
 
     val numValidation = validation.count()
@@ -106,9 +103,7 @@ object MovieLensALS {
 
     println("Training: " + numTraining + " validation: " + numValidation + " test: " + numTest)
 
-
-
-    //训练不同参数下的模型，并在校验集中验证，获取最佳参数下的模型
+    //训练不同参数下的模型，并在校验集中验证，获取最佳参数下的模�?
 
     val ranks = List(8, 12)
 
@@ -155,7 +150,7 @@ object MovieLensALS {
     }
 
 
-    //用最佳模型预测测试集的评分，并计算和实际评分之间的均方根误差（RMSE）
+    //用最佳模型预测测试集的评分，并计算和实际评分之间的均方根误差（RMSE�?
 
     val testRmse = computeRmse(bestModel.get, test, numTest)
 
@@ -175,7 +170,7 @@ object MovieLensALS {
     println("The best model improves the baseline by " + "%1.2f".format(improvement) + "%.")
 
 
-    //推荐前十部最感兴趣的电影，注意要剔除用户已经评分的电影
+    //推荐前十部最感兴趣的电影，注意要剔除用户已经评分的电�?
 
     val myRatedMovieIds = myRatings.map(_.product).toSet
 
@@ -200,14 +195,12 @@ object MovieLensALS {
       println("%2d".format(i) + ": " + movies(r.product))
 
       i += 1
-
     }
 
 
     sc.stop()
 
   }
-
 
 
   /** 校验集预测数据和实际数据之间的均方根误差 **/
@@ -222,7 +215,6 @@ object MovieLensALS {
                           .join(data.map(x => ((x.user,x.product),x.rating))).values
 
     math.sqrt(predictionsAndRatings.map( x => (x._1 - x._2) * (x._1 - x._2)).reduce(_+_)/n)
-
   }
 
 
@@ -257,4 +249,3 @@ object MovieLensALS {
 }
 
 
-        3

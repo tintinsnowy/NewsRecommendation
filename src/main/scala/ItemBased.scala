@@ -9,14 +9,20 @@ import org.apache.spark.mllib.linalg.{SparseVector, Vectors}
 import org.apache.spark.mllib.linalg.distributed.{RowMatrix, IndexedRowMatrix, IndexedRow}
 
 object ItemCF {
+
   def main(args: Array[String]): Unit = {
+  
     val sconf = new SparkConf()
       .setMaster("local[2]")
       .setAppName("item-one")
       .set("spark.executor.memory", "4g")
+
     val sc =new SparkContext(sconf)
+    
     val ratings = sc.textFile("data/ratings.dat").map{ line:String =>
+    
       val fields =line.split("::")
+    
       (fields(0).toInt, fields(1).toInt, fields(2).toDouble)
     }
 //    ratings.map{ case( user, movie,_) =>
@@ -32,10 +38,13 @@ object ItemCF {
     }
 
     val numUsers =users.max()
+    
     val numItems = items.max()
 //
     val rows:RDD[IndexedRow] = ratings.map{
+    
       case (user, item, rate) =>
+    
       (user ,(item, rate))
     }
       .groupByKey()
