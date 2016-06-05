@@ -27,7 +27,7 @@ object ModuleBased {
    //val tmpData = loadRatings("/home/sherry/web-data/test.csv")
    //val testData = sc.parallelize(tmpData)    
 
-  /** 校验集预测数据和实际数据之间的均方根误差 **/
+  /** **/
   def train(ratings: RDD[Rating],num:Int):Array[Rating]{
       //count the toaltal rating
     val numRatings = ratings.count()
@@ -43,7 +43,7 @@ object ModuleBased {
     
     val training = sc.makeRDD(ratings.collect.dropRight((numRatings*0.4).toInt)) 
     
-    val validation = sc.parallelize(ratings.collect.drop((numRatings*0.fg6)
+    val validation = sc.parallelize(ratings.collect.drop((numRatings*0.6)
                 .toInt).dropRight((numRatings*0.2).toInt))
     val test = sc.parallelize(ratings.collect.drop((numRatings*0.9).toInt)).persist()
     // to valify whether the

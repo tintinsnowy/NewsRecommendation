@@ -46,80 +46,70 @@ object UserBased{
   //     val similarity_Max = UserSimilarity(userData, userMax.size)
   // }//end of main
   //match and calculate the similarity
-  def userRecommend(similarity_Max: Array[Array[(Long, Double)]],top: Int
-        ,userMax:Array[String,List[(Int,Int)]):
-        Array[List[Long]]{
-  // then we start recommendation 
-      val len_sim = similarity_Max[1].size-1
+  def UserRecommend(similarity_Max: Array[Array[Double]],top: Int
+        ,userMax:Array[(String,List[(Int,Long)])]):
+        Array[List[Long]] = {
+      // then we start recommendation 
+      val len_sim = similarity_Max(1).size.toInt-1
       
-      val recomUser_Max =  Array[List[Long]](len_sim)
+      val recomUser_Max = new Array[List[Long]](len_sim)
+       
+       for (i  <- 0 to len_sim-1){
     
-      for (i  <- 0 to similarity_Max[1].size-1){
-    
-        val temp_s = s.sorted(_._2 > _._2)
+        val temp_s = similarity_Max(i).sortWith(_.compareTo(_) > 0)
     
         var union_recomm = Array[Long](0)  
         
-        for (j <- 0 top-1){
+        for (j <- 0 to (top-1)){
           
-          val  userMax(j)._2.foreach(
+            userMax2(j)._2.foreach(
                s =>
-               if(!union_recomm.exist(s._2))
+               if(!union_recomm.exists({x: Long => x==s._2}))
                  union_recomm = union_recomm :+ s._2
-               )
+              )
         }
-        val userA_event = userMax(i)._2.foreach{
+
+        userMax2(i)._2.foreach{
             s => 
+            if(union_recomm.exists({x: Long => x==s._2}))
             
-            if(union_recomm.exist(s._2))
-            
-               union_recomm.filter(x => x!=s._2)}
+               union_recomm = union_recomm.filter(x => x!=s._2)}
                
         recomUser_Max(i) = union_recomm.toList
     }
-    
     return recomUser_Max
  }//end of function
 
-  def UserSimilarity(userData: Array[(Int,String,String,String,String)]):
-      Array[Array[(Long, Double)]] = {
-      val len = userData.size-1
-      var result = ofDim[(Long, Double)](len,len)
+def UserSimilarity(userData: Array[(Int,String,String,String,String)], len: Int):
       
-      for (i <- 0 to (len)){
+      Array[Array[Double]] = {
+            
+      var result = ofDim[Double](len,len)
+      println("====hello====")
+      for (i <- 0 to len){
+    
+       for (j <- 0 to len){
+          
+          val len_a = userData(i)._1
+    
+          val len_b = userData(j)._1
       
-        for (j <- 0 to (len))
-            result(i)(j) = 0
-      }// initialization
-      val len_user = userData.length-1
+          if (i != j && ((userData(i)._2) == userData(j)._2)){
     
-    for (i <- 0 to len_user){
-    
-       for (j <- 0 to len_user){
-    
-           var temp_comm = 0
-           if (i != j && (userData(i)._2) == userData(j)._2){
-    
-              val len_a = userData(i)._1
-    
-              val len_b = userData(j)._1
-    
-              var common  = 0;
-    
-              if (userData(i)._2 == userData(j)._2)
-                 common = common + 1
-              if (userData(i)._3 == userData(j)._3)
-                 common = common + 1
-              if (userData(i)._4 == userData(j)._4)
-                 common = common + 1
-                   
-                 temp_comm = temp_comm + common/3.0
-           }
-           result(len_a)(len_b) = (j, temp_comm)
+            var common  = 0 
+  
+            if (userData(i)._3 == userData(j)._3)
+              common = common + 1
+            if (userData(i)._5 == userData(j)._5)
+              common = common + 1
+            if (userData(i)._4 == userData(j)._4)
+              common = common + 1
+            result(len_a)(len_b) = (result(len_a)(len_b) + common/3.0)
+          }
        }
     }
      return result
-  } // end of the UserSimilarity
+} // end of the UserSimilarity
 
 
 
@@ -131,8 +121,6 @@ object UserBased{
   
    Map[String,List[(Int,String,String,String,String)]] = {
     
-    import scala.collection.mutable.Map //avoid misunderstanding we need include this lib
-
     var temp:Map[String,List[(Int,String,String,String,String)]]= Map()
     
     val total = parsedData.length
@@ -153,18 +141,17 @@ object UserBased{
           temp.remove(parsedData(i)._1)
           
           temp += (parsedData(i)._1 -> newList)
-        }
+      }
        else {
       
           var listAction = List((num,parsedData(i)._2, parsedData(i)._3, parsedData(i)._4, parsedData(i)._5))
-      
+
           temp += (parsedData(i)._1 -> listAction)
       
           num = num + 1
-        }
+      }
     }
     return temp
-  
   }//end of def useraction
 // ==
 }

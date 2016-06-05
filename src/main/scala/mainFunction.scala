@@ -2,13 +2,25 @@ package scala
 
 import org.apache.log4j.{Level, Logger}
 
-import org.apache.spark.mllib.recommendation.{ALS, Rating}
-
-import org.apache.spark.storage.StorageLevel
-
 import org.apache.spark.streaming.{Seconds, StreamingContext}
 
 import org.apache.spark.{SparkConf, SparkContext}
+
+import org.apache.spark.sql._
+
+import org.apache.spark.mllib.recommendation.{ALS, MatrixFactorizationModel, Rating}
+
+import org.apache.spark.rdd._
+
+import org.apache.spark.SparkContext._
+
+import scala._
+
+import java.io.File
+
+import scala.collection.mutable.Map
+
+import Array._
 
 object mainFunction {
 
@@ -29,12 +41,11 @@ object mainFunction {
 
     val sparkContext = new SparkContext(sparkConf).setMaster("local[5]")
 
-    val hbaseConf = HBaseConfiguration.create()
     //hbaseConf.set("hbase.zookeeper.quorum", "cloud4,cloud5,cloud6")
     //hbaseConf.set("hbase.zookeeper.property.clientPort", "2181")
     //hbaseConf.set("zookeeper.session.timeout", "6000000")
 
-    println("\n=====================step 2 load data==========================")
+   println("\n=====================step 2 load data==========================")
 
    val eventHomeDir = "/home/sherry/web-data/train.csv" //args(0)  val eventHomeDir = "/sherry"
     //装载样本评分数据-the this is for the ModuleBased
@@ -76,31 +87,32 @@ object mainFunction {
     val data = sc.textFile(eventHomeDir)//args(0)
 
     var parsedData = data.map(s => (s.split(',')(0).toString, s.split(',')(1).toString,
-    	s.split(',')(2).toString, s.split(',')(4).toString, s.split(',')(5).toString)).collect
+      s.split(',')(2).toString, s.split(',')(4).toString, s.split(',')(5).toString)).collect
      
     println("\n[Part1]counting the first part----UserBased recommendation")
     
-    val SingleUser = UserBased.UserAction(parsedData) 
-    
+    //val test_parsedData = parsedData.drop((parsedData.size*0.2).toInt)
+
+    var SingleUser = UserBased.UserAction(parsedData) 
+             
     var userData = new Array[(Int,String,String,String,String)](0)
 
-    var userMax:Map[String,List[(Int,Int)] = Map()
+    var userMax:Map[String,List[(Int,Long)]] = Map()
 
     for (s <- SingleUser){
 
         if(!userMax.contains(s._1)){
             // the List of user-id-event              
-              val temp_list = s._1 -> s._2.map(s => (s(0),s(1))).distinct         
-              
+              val temp_list = s._2.map(x => (x._1.toInt,x._2.toLong)).distinct         
               userMax += (s._1 -> temp_list)
         }
         val temp_array = concat(s._2.toArray, userData)
 
         userData = temp_array
     }// the map from username to maxindex
-    val similarity_Max = UserBased.UserSimilarity(userData)
+    val similarity_Max = UserBased.UserSimilarity(userData,SingleUser.size)
     
-    val result_user = UserBased.userRecommend(similarity_Max, userMax.toArray, 3)
+    val result_user = UserBased.UserRecommend(similarity_Max, 3, userMax.toArray)
     
     
      
